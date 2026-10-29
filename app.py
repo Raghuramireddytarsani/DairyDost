@@ -33,7 +33,6 @@ def run(fn_name: str, filt: tuple, extra: tuple = ()):
 @st.cache_data(ttl=600, show_spinner=False)
 def options():
     c = get_db()["sales"]
-    first = c.find_one(sort=[("date", 1)])
     last = c.find_one(sort=[("date", -1)])
     return {
         "years": Q.distinct_values(c, "year"),
@@ -79,7 +78,7 @@ if page == "Dashboard":
     k = run("kpis", filt)
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Revenue", inr(k["revenue"]))
-    c2.metric("Quantity sold", f"{k['qty_sold']:,.0f} L/kg")
+    c2.metric("Quantity sold", f"{k['qty_sold']:,.2f} L/kg")
     c3.metric("Avg selling price", f"₹{k['avg_price']:,.2f}")
     c4.metric("Sales records", f"{k['records']:,}")
 
@@ -156,7 +155,7 @@ elif page == "Inventory & Alerts":
     c1.metric("Batches below minimum stock", f"{n_low:,}")
     c2.metric("Share of all batches", f"{pct:.1f}%")
     c3.metric("Suggested reorder (total)",
-              f"{summ['reorder_total'].sum():,.0f} L/kg" if not summ.empty else "0")
+              f"{summ['reorder_total'].sum():,.2f} L/kg" if not summ.empty else "0")
 
     st.subheader("🔴 Low-stock alerts")
     if summ.empty:
@@ -197,15 +196,22 @@ elif page == "Forecast":
         st.plotly_chart(px.line(pd.concat([hist, fc]), x="month", y="revenue", color="type",
                                 markers=True, title="Monthly revenue: actual and forecast (₹)"))
         c1, c2 = st.columns(2)
-        c1.metric("Model error on last 12 months (MAPE)", f"{res['mape']:.1f}%")
-        c2.metric("Naive 'average month' baseline error", f"{res['baseline_mape']:.1f}%")
-        better = res["mape"] < res["baseline_mape"]
-        st.caption(
-            "Model: linear trend + month-of-year seasonality, trained on all but the last 12 "
-            "months and tested on those 12. "
-            + ("It beats the baseline, but treat the forecast as a rough guide." if better
-               else "It does not beat the baseline, so treat the forecast with caution.")
-        )
+        mape = res["mape"]
+        baseline_mape = res["baseline_mape"]
+        if mape is None or baseline_mape is None:
+            c1.metric("Model error on last 12 months (MAPE)", "N/A")
+            c2.metric("Naive 'average month' baseline error", "N/A")
+            st.caption("MAPE is unavailable because the hold-out period has no positive-revenue months.")
+        else:
+            c1.metric("Model error on last 12 months (MAPE)", f"{mape:.1f}%")
+            c2.metric("Naive 'average month' baseline error", f"{baseline_mape:.1f}%")
+            better = mape < baseline_mape
+            st.caption(
+                "Model: linear trend + month-of-year seasonality, trained on all but the last 12 "
+                "months and tested on those 12. "
+                + ("It beats the baseline, but treat the forecast as a rough guide." if better
+                   else "It does not beat the baseline, so treat the forecast with caution.")
+            )
         with st.expander("Hold-out check (actual vs predicted)"):
             st.dataframe(res["holdout"].round(0), hide_index=True)
         st.dataframe(res["forecast"].round(0), hide_index=True)
@@ -236,7 +242,7 @@ else:
         prod_date = c.date_input("Production date", value=date.today())
 
         a, b, c = st.columns(3)
-        sold = a.number_input("Quantity sold (L/kg)", 0, 1000000, 200)
+        sold = a.number_input("Quantity sold (L/kg)", 0.0, 1000000.0, 200.0, step=0.1)
         sold_price = b.number_input("Selling price per unit (₹)", 0.1, 10000.0, 48.0)
         channel = c.selectbox("Sales channel", opt["channels"])
 
@@ -261,13 +267,13 @@ else:
                             "list_price": float(list_price)},
                 "batch": {"produced_qty": float(produced), "total_value": float(produced * list_price),
                           "production_date": pd_, "expiry_date": pd_ + timedelta(days=int(shelf))},
-                "sale": {"qty_sold": int(sold), "price": float(sold_price),
+                "sale": {"qty_sold": float(sold), "price": float(sold_price),
                          "revenue": float(sold * sold_price), "customer_location": cust,
                          "channel": channel},
-                "inventory": {"in_stock": int(produced - sold), "min_threshold": float(min_thr),
+                "inventory": {"in_stock": float(produced - sold), "min_threshold": float(min_thr),
                               "reorder_qty": float(reorder)},
             })
             st.cache_data.clear()
-            st.success(f"Saved. Revenue {inr(sold * sold_price)}, stock left {int(produced - sold)}.")
+            st.success(f"Saved. Revenue {inr(sold * sold_price)}, stock left {produced - sold:,.2f}.")
             if produced - sold < min_thr:
                 st.warning("This batch is already below its minimum stock threshold.")

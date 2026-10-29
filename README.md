@@ -45,6 +45,10 @@ data/           dairy_dataset.csv
    ```bash
    streamlit run app.py
    ```
+5. Run the forecast regression tests:
+   ```bash
+   python -m unittest discover -s tests -v
+   ```
 
 ## Deploy to Streamlit Community Cloud
 1. Push the project to GitHub. Include `app.py`, the other Python modules, `requirements.txt`, and `data/dairy_dataset.csv`. Do **not** commit `.env` or `.streamlit/secrets.toml`; both are git-ignored.

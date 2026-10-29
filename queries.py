@@ -90,7 +90,11 @@ def price_realization(col, m) -> pd.DataFrame:
     return _df(col, [
         {"$match": m},
         {"$group": {"_id": "$product.name",
-                    "ratio": {"$avg": {"$divide": ["$sale.price", "$product.list_price"]}},
+                    "ratio": {"$avg": {"$cond": [
+                        {"$gt": ["$product.list_price", 0]},
+                        {"$divide": ["$sale.price", "$product.list_price"]},
+                        None,
+                    ]}},
                     "avg_list": {"$avg": "$product.list_price"},
                     "avg_sold": {"$avg": "$sale.price"}}},
         {"$sort": {"ratio": 1}},
@@ -102,7 +106,11 @@ def revenue_per_cow_by_size(col, m) -> pd.DataFrame:
     return _df(col, [
         {"$match": m},
         {"$group": {"_id": "$farm.size",
-                    "revenue_per_cow": {"$avg": {"$divide": ["$sale.revenue", "$farm.cows"]}},
+                    "revenue_per_cow": {"$avg": {"$cond": [
+                        {"$gt": ["$farm.cows", 0]},
+                        {"$divide": ["$sale.revenue", "$farm.cows"]},
+                        None,
+                    ]}},
                     "avg_cows": {"$avg": "$farm.cows"}, "records": {"$sum": 1}}},
         {"$project": {"_id": 0, "farm_size": "$_id", "revenue_per_cow": 1,
                       "avg_cows": 1, "records": 1}},

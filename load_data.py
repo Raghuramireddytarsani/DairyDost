@@ -55,10 +55,10 @@ def to_doc(r) -> dict:
         "batch": {"produced_qty": float(r.produced_qty), "total_value": float(r.total_value),
                   "production_date": r.production_date.to_pydatetime(),
                   "expiry_date": r.expiry_date.to_pydatetime()},
-        "sale": {"qty_sold": int(r.qty_sold), "price": float(r.sold_price),
+        "sale": {"qty_sold": float(r.qty_sold), "price": float(r.sold_price),
                  "revenue": float(r.revenue), "customer_location": r.customer_location,
                  "channel": r.channel},
-        "inventory": {"in_stock": int(r.in_stock), "min_threshold": float(r.min_threshold),
+        "inventory": {"in_stock": float(r.in_stock), "min_threshold": float(r.min_threshold),
                       "reorder_qty": float(r.reorder_qty)},
     }
 
